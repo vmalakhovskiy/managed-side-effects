@@ -1,0 +1,26 @@
+PODS:
+  - Nimble (8.0.2)
+  - Quick (2.1.0)
+  - SwiftyMock (0.2.3):
+    - SwiftyMock/Core (= 0.2.3)
+  - SwiftyMock/Core (0.2.3)
+
+DEPENDENCIES:
+  - Nimble
+  - Quick
+  - SwiftyMock
+
+SPEC REPOS:
+  https://github.com/cocoapods/specs.git:
+    - Nimble
+    - Quick
+    - SwiftyMock
+
+SPEC CHECKSUMS:
+  Nimble: 622629381bda1dd5678162f21f1368cec7cbba60
+  Quick: 4be43f6634acfa727dd106bdf3929ce125ffa79d
+  SwiftyMock: 26d649bbf320ede90196b40129552ef719863043
+
+PODFILE CHECKSUM: 018d2e4c131a262b0a97fc8e56d7665adadd27e2
+
+COCOAPODS: 1.6.1
