@@ -59,6 +59,7 @@
 		6E0C92B922E70808008C4EAF /* Shared.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Shared.h; sourceTree = "<group>"; };
 		6E0C92BA22E70808008C4EAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6E0C92C322E7375C008C4EAF /* Common.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Common.swift; sourceTree = "<group>"; };
+		6E39BA5622E8B60500C7A7E8 /* SeparateLogicAndEffects.playground */ = {isa = PBXFileReference; lastKnownFileType = file.playground; path = SeparateLogicAndEffects.playground; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.swift; };
 		7085ACF76758489924219A13 /* Pods_Shared.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Shared.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -85,6 +86,7 @@
 		47F1796222E6BC7700B3CF00 = {
 			isa = PBXGroup;
 			children = (
+				6E39BA5622E8B60500C7A7E8 /* SeparateLogicAndEffects.playground */,
 				47F1798122E6BCA300B3CF00 /* MixedLogicAndEffects.playground */,
 				47F1796D22E6BC7700B3CF00 /* ManagedSideEffects */,
 				6E0C92B822E70808008C4EAF /* Shared */,
