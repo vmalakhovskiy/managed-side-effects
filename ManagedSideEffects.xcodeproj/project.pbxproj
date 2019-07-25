@@ -15,7 +15,9 @@
 		6E0C92BB22E70808008C4EAF /* Shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E0C92B922E70808008C4EAF /* Shared.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		6E0C92BE22E70808008C4EAF /* Shared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6E0C92B722E70807008C4EAF /* Shared.framework */; };
 		6E0C92BF22E70808008C4EAF /* Shared.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 6E0C92B722E70807008C4EAF /* Shared.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		6E0C92C422E7375C008C4EAF /* Common.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0C92C322E7375C008C4EAF /* Common.swift */; };
+		6E0C92C422E7375C008C4EAF /* NSErrorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0C92C322E7375C008C4EAF /* NSErrorExtensions.swift */; };
+		6E39BA5822E9A51700C7A7E8 /* Storage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E39BA5722E9A51700C7A7E8 /* Storage.swift */; };
+		6E39BA5A22E9A55400C7A7E8 /* Downloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E39BA5922E9A55400C7A7E8 /* Downloader.swift */; };
 		AEAEA8D9FD656142CE8090D7 /* Pods_Shared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7085ACF76758489924219A13 /* Pods_Shared.framework */; };
 /* End PBXBuildFile section */
 
@@ -58,8 +60,10 @@
 		6E0C92B722E70807008C4EAF /* Shared.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Shared.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E0C92B922E70808008C4EAF /* Shared.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Shared.h; sourceTree = "<group>"; };
 		6E0C92BA22E70808008C4EAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		6E0C92C322E7375C008C4EAF /* Common.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Common.swift; sourceTree = "<group>"; };
+		6E0C92C322E7375C008C4EAF /* NSErrorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSErrorExtensions.swift; sourceTree = "<group>"; };
 		6E39BA5622E8B60500C7A7E8 /* SeparateLogicAndEffects.playground */ = {isa = PBXFileReference; lastKnownFileType = file.playground; path = SeparateLogicAndEffects.playground; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.swift; };
+		6E39BA5722E9A51700C7A7E8 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
+		6E39BA5922E9A55400C7A7E8 /* Downloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Downloader.swift; sourceTree = "<group>"; };
 		7085ACF76758489924219A13 /* Pods_Shared.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Shared.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -123,7 +127,9 @@
 			children = (
 				6E0C92B922E70808008C4EAF /* Shared.h */,
 				6E0C92BA22E70808008C4EAF /* Info.plist */,
-				6E0C92C322E7375C008C4EAF /* Common.swift */,
+				6E0C92C322E7375C008C4EAF /* NSErrorExtensions.swift */,
+				6E39BA5722E9A51700C7A7E8 /* Storage.swift */,
+				6E39BA5922E9A55400C7A7E8 /* Downloader.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -295,7 +301,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6E0C92C422E7375C008C4EAF /* Common.swift in Sources */,
+				6E0C92C422E7375C008C4EAF /* NSErrorExtensions.swift in Sources */,
+				6E39BA5822E9A51700C7A7E8 /* Storage.swift in Sources */,
+				6E39BA5A22E9A55400C7A7E8 /* Downloader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

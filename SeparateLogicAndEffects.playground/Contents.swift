@@ -1,6 +1,20 @@
 import UIKit
 import Shared
+import XCTest
 import PlaygroundSupport
+
+/* Content list:
+    1, 2, 3 - State, Event and reduce - representation of logic separated from Service
+    4 - Presenter - interpretes state to concrete effect handler (controller)
+    5 - Controller - effects producer
+    6 - Logic tests (XCTest) imeplementation
+    7 - Presenter tests (XCTest) imeplementation
+    8 - Controller tests (XCTest) imeplementation
+    9 - Uncomment this block to execute business logic
+    10 - Uncomment this block to run tests for logic
+    11 - Uncomment this block to run Presenter tests
+    12 - Uncomment this block to run Controller tests
+*/
 
 // 1 -------------------------------------------------------------------------------------
 
@@ -38,7 +52,7 @@ func reduce(_ state: State, with event: Event) -> State {
     case let (.checkingForAvaliability(url), .checkSucceed(data)):
         return .finished(url, data)
         
-    case let (.checkingForAvaliability(url), .checkFailed):
+    case (.checkingForAvaliability(let url), .checkFailed):
         return .downloading(url)
         
     case let (.downloading(url), .downloadSucceed(data)):
@@ -103,7 +117,7 @@ struct Presenter {
 
 // 5 -------------------------------------------------------------------------------------
 
-class Controller {
+final class Controller {
     enum Props {
         case idle
         case checkForAvaliability(url: URL, success: (Data) -> (), failure: () -> ())
@@ -111,18 +125,12 @@ class Controller {
         case save(url: URL, data: Data, success: (Data) -> (), failure: () -> ())
     }
     
-    private let makeRequest: (URL) -> Request
-    private let read: (URL) throws -> Data
-    private let write: (URL, Data) throws -> Data
+    private let storage: Storage
+    private let downloader: Downloader
     
-    init(
-        makeRequest: @escaping (URL) -> Request,
-        read: @escaping (URL) throws -> Data,
-        write: @escaping (URL, Data) throws -> Data
-    ) {
-        self.makeRequest = makeRequest
-        self.read = read
-        self.write = write
+    init(storage: Storage, downloader: Downloader) {
+        self.storage = storage
+        self.downloader = downloader
     }
     
     func render(props: Props) {
@@ -131,27 +139,29 @@ class Controller {
             break
             
         case .checkForAvaliability(let url, let success, let failure):
-            if let data = try? read(url) {
+            switch storage.fetch(from: url) {
+            case .success(let data):
                 success(data)
-            } else {
+            case .failure:
                 failure()
             }
             
         case .download(let url, let success, let failure):
-            makeRequest(url).perform { data in
-                if let data = try? data.get() {
+            downloader.download(from: url) { result in
+                switch result {
+                case .success(let data):
                     success(data)
-                } else {
+                case .failure:
                     failure()
                 }
             }
             
         case .save(let url, let data, let success, let failure):
-            do {
-                success(try write(url, data))
-            } catch {
+            switch storage.store(data: data, to: url) {
+            case .success:
+                success(data)
+            case .failure:
                 failure()
-                print(error)
             }
         }
     }
@@ -175,35 +185,24 @@ extension Controller.Props: Equatable {
 }
 
 struct ControllerFactory {
-    static func new() -> Controller {
-        return Controller(
-            makeRequest: Request.download,
-            read: { path in
-                guard let path = constructLocalPath(from: path) else { throw CannotConstructLocalPath(triedWith: url) }
-                return try Data(contentsOf: path)
-            },
-            write: { path, data in
-                try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: nil)
-                guard let path = constructLocalPath(from: path) else { throw CannotConstructLocalPath(triedWith: url) }
-                try data.write(to: path)
-                return data
-            }
-        )
+    static func new(
+        storage: Storage = StorageFactory.new(),
+        downloader: Downloader = DownloaderFactory.new()
+    ) -> Controller {
+        return Controller(storage: storage, downloader: downloader)
     }
 }
 
 // 6 -------------------------------------------------------------------------------------
 
-import XCTest
-
-class DownloaderSpec: XCTestCase {
+final class StateSpec: XCTestCase {
     var url: URL!
     var data: Data!
     
     override func setUp() {
         super.setUp()
         
-        url = URL(string: "www.google.com")!
+        url = URL(string: "https://betterme.world")!
         data = Data()
     }
     
@@ -257,36 +256,212 @@ class DownloaderSpec: XCTestCase {
     }
 }
 
-DownloaderSpec.defaultTestSuite.run()
-
 // 7 -------------------------------------------------------------------------------------
 
-let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("downloads")
-func constructLocalPath(from url: URL) -> URL? {
-    return url.pathComponents.last.map(root.appendingPathComponent)
+final class PresenterSpec: XCTestCase {
+    var sut: Presenter!
+    var dispatched: Event!
+    var rendered: Controller.Props!
+    var url: URL!
+    var data: Data!
+
+    override func setUp() {
+        super.setUp()
+
+        url = URL(string: "https://betterme.world")!
+        data = Data()
+        sut = Presenter(
+            render: { self.rendered = $0 },
+            dispatch: { self.dispatched = $0 }
+        )
+    }
+
+    func test_shouldRenderCorrectProps_forCheckingForAvaliabilityState() {
+        sut.handle(state: .checkingForAvaliability(url))
+
+        XCTAssertEqual(rendered, .checkForAvaliability(url: url, success: { _ in () }, failure: {}))
+
+        if case .checkForAvaliability(_, let success, let failure)? = rendered {
+            success(data)
+            XCTAssertEqual(dispatched, .checkSucceed(data))
+
+            failure()
+            XCTAssertEqual(dispatched, .checkFailed)
+        } else {
+            XCTFail()
+        }
+    }
+
+    func test_shouldRenderCorrectProps_forDownloadingState() {
+        sut.handle(state: .downloading(url))
+
+        XCTAssertEqual(rendered, .download(url: url, success: { _ in () }, failure: {}))
+
+        if case .download(_, let success, let failure)? = rendered {
+            success(data)
+            XCTAssertEqual(dispatched, .downloadSucceed(data))
+
+            failure()
+            XCTAssertEqual(dispatched, .downloadFailed)
+        } else {
+            XCTFail()
+        }
+    }
+
+    func test_shouldRenderCorrectProps_forSavingState() {
+        sut.handle(state: .saving(url, data))
+
+        XCTAssertEqual(rendered, .save(url: url, data: data, success: { _ in () }, failure: {}))
+
+        if case .save(_, _, let success, let failure)? = rendered {
+            success(data)
+            XCTAssertEqual(dispatched, .saveSucceed(data))
+
+            failure()
+            XCTAssertEqual(dispatched, .saveFailed)
+        } else {
+            XCTFail()
+        }
+    }
 }
-struct CannotConstructLocalPath: Error {
-    let triedWith: URL
+
+// 8 -------------------------------------------------------------------------------------
+
+final class ControllerSpec: XCTestCase {
+    var sut: Controller!
+    var storage: MockStorage!
+    var downloader: MockDownloader!
+    var url: URL!
+    var data: Data!
+    
+    override func setUp() {
+        super.setUp()
+        
+        storage = MockStorage()
+        downloader = MockDownloader()
+        sut = ControllerFactory.new(storage: storage, downloader: downloader)
+        url = URL(string: "https://betterme.world")!
+        data = Data()
+    }
+    
+    func test_shouldReadData_forCheckForAvaliabilityProps_andReturnData_ifSucceed() {
+        //given
+        var receivedData: Data!
+        storage.fetchCall
+            .on { $0 == self.url }
+            .returns(.success(data))
+        
+        //when
+        sut.render(props: .checkForAvaliability(url: url, success: { receivedData = $0 }, failure: {}))
+        
+        //then
+        XCTAssertEqual(receivedData, data)
+    }
+    
+    func test_shouldReadData_forCheckForAvaliabilityProps_andCallFailure_ifFailed() {
+        //given
+        var failureCalled = false
+        storage.fetchCall
+            .on { $0 == self.url }
+            .returns(.failure(NSError.dummy))
+        
+        //when
+        sut.render(props: .checkForAvaliability(url: url, success: { _ in () }, failure: { failureCalled = true }))
+        
+        //then
+        XCTAssertTrue(failureCalled)
+    }
+    
+    func test_shouldDownloadData_forDownloadProps_andReturnData_ifSucceed() {
+        //given
+        var receivedData: Data!
+        downloader.downloadCall
+            .on { passed, _ in passed == self.url }
+            .performs { _, completion in
+                completion(.success(self.data))
+            }
+        
+        //when
+        sut.render(props: .download(url: url, success: { receivedData = $0 }, failure: {}))
+        
+        //then
+        XCTAssertEqual(receivedData, data)
+    }
+    
+    func test_shouldDownloadData_forDownloadProps_andCallFailure_ifFailed() {
+        //given
+        var failureCalled = false
+        downloader.downloadCall
+            .on { passed, _ in passed == self.url }
+            .performs { _, completion in
+                completion(.failure(NSError.dummy))
+            }
+        
+        //when
+        sut.render(props: .download(url: url, success: { _ in () }, failure: { failureCalled = true }))
+        
+        //then
+        XCTAssertTrue(failureCalled)
+    }
+    
+    func test_shouldSaveData_forSaveProps_andReturnData_ifSucceed() {
+        //given
+        var successCalled = false
+        storage.storeCall
+            .on { _, passed in passed == self.url }
+            .returns(.success(()))
+        
+        //when
+        sut.render(props: .save(url: url, data: data, success: { _ in successCalled = true }, failure: {}))
+        
+        //then
+        XCTAssertTrue(successCalled)
+    }
+    
+    func test_shouldSaveData_forSaveProps_andCallFailure_ifFailed() {
+        //given
+        var failureCalled = false
+        storage.storeCall
+            .on { _, passed in passed == self.url }
+            .returns(.failure(NSError.dummy))
+        
+        //when
+        sut.render(props: .save(url: url, data: data, success: { _ in () }, failure: { failureCalled = true }))
+        
+        //then
+        XCTAssertTrue(failureCalled)
+    }
 }
 
-let url = URL(string: "https://images.pexels.com/photos/67636/rose-blue-flower-rose-blooms-67636.jpeg")!
+// 9 -------------------------------------------------------------------------------------
 
-let controller = ControllerFactory.new()
+//let url = URL(string: "https://images.pexels.com/photos/67636/rose-blue-flower-rose-blooms-67636.jpeg")!
+//let controller = ControllerFactory.new()
+//var state = State.idle
+//
+//func dispatch(event: Event) {
+//    let newState = reduce(state, with: event)
+//    print("""
+//        old state: \(state)
+//        event: \(event)
+//        new state: \(newState)
+//        -
+//        """)
+//    state = newState
+//    presenter.handle(state: newState)
+//}
+//
+//let presenter = Presenter(render: controller.render, dispatch: dispatch)
+//dispatch(event: .download(url))
 
-var state = State.idle
+// 10 -------------------------------------------------------------------------------------
 
-func dispatch(event: Event) {
-    let newState = reduce(state, with: event)
-    print("""
-        old state: \(state)
-        event: \(event)
-        new state: \(newState)
-        -
-        """)
-    state = newState
-    adapter.handle(state: newState)
-}
+//StateSpec.defaultTestSuite.run()
 
-let adapter = Presenter(render: controller.render, dispatch: dispatch)
+// 11 -------------------------------------------------------------------------------------
 
-dispatch(event: .download(url))
+//PresenterSpec.defaultTestSuite.run()
+
+// 12 -------------------------------------------------------------------------------------
+
+//ControllerSpec.defaultTestSuite.run()

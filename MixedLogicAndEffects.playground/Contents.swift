@@ -5,92 +5,15 @@ import SwiftyMock
 import Shared
 
 /* Content list:
-    1 - Storage (used for storing/fetching data - wrapper over file system calls)
-    2 - Downloader (used for downloading data - wrapper for url session)
-    3 - Service (composes storage & downloader functions, provides interface for further integration)
-    4 - Storage & Downloader mocks for tests
-    5 - Service BDD spec imeplementation
-    6 - Service plain XCTest spec imeplementation
-    7 - Uncomment this block to execute Service `provide` function. This is main input for our service
-    8 - Uncomment this block to run BDD tests
-    9 - Uncomment this block to run plain tests
+    1 - Service (composes storage & downloader functions, provides interface for further integration)
+    2 - Service BDD spec imeplementation
+    3 - Service tests (XCTest) imeplementation
+    4 - Uncomment this block to execute Service `provide` function. This is main input for our service
+    5 - Uncomment this block to run BDD tests
+    6 - Uncomment this block to run plain tests
 */
 
 // 1 -------------------------------------------------------------------------------------
-
-protocol Storage {
-    func fetch(from url: URL) -> Result<Data, Error>
-    func store(data: Data, to url: URL) -> Result<Void, Error>
-}
-
-final private class StorageImpl: Storage {
-    private let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("downloads")
-    
-    struct CannotConstructLocalPath: Error {
-        let triedWith: URL
-    }
-
-    private func constructLocalPath(from url: URL) -> URL? {
-        return url.pathComponents.last.map(root.appendingPathComponent)
-    }
-    
-    func fetch(from url: URL) -> Result<Data, Error> {
-        guard let path = constructLocalPath(from: url) else { return .failure(CannotConstructLocalPath(triedWith: url)) }
-        return Result { try Data(contentsOf: path) }
-    }
-    
-    func store(data: Data, to url: URL) -> Result<Void, Error> {
-        do {
-            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: nil)
-            guard let path = constructLocalPath(from: url) else { return .failure(CannotConstructLocalPath(triedWith: url)) }
-            try data.write(to: path)
-            return .success(())
-        } catch {
-            return .failure(error)
-        }
-    }
-}
-
-struct StorageFactory {
-    static func new() -> Storage {
-        return StorageImpl()
-    }
-}
-
-// 2 -------------------------------------------------------------------------------------
-
-protocol Downloader {
-    func download(from url: URL, completion: @escaping (Result<Data, Error>) -> ())
-}
-
-final class DownloaderImpl: Downloader {
-    let session = URLSession(configuration: .default)
-    
-    func download(from url: URL, completion: @escaping (Result<Data, Error>) -> ()) {
-        let task = session.dataTask(with: url) { (data, _, error) in
-            switch (data, error) {
-            case (.none, let error?):
-                completion(.failure(error))
-                
-            case (let data?, .none):
-                completion(.success(data))
-                
-            default:
-                struct UndefinedResponse: Error {}
-                completion(.failure(UndefinedResponse()))
-            }
-        }
-        task.resume()
-    }
-}
-
-struct DownloaderFactory {
-    static func new() -> Downloader {
-        return DownloaderImpl()
-    }
-}
-
-// 3 -------------------------------------------------------------------------------------
 
 protocol Service {
     func provide(for url: URL, completion: @escaping (Result<Data, Error>) -> ())
@@ -143,28 +66,7 @@ struct ServiceFactory {
     }
 }
 
-// 4 -------------------------------------------------------------------------------------
-
-final class MockStorage: Storage {
-    let fetchCall = FunctionCall<URL, Result<Data, Error>>()
-    func fetch(from url: URL) -> Result<Data, Error> {
-        return stubCall(fetchCall, argument: url, defaultValue: .failure(NSError.dummy))
-    }
-    
-    let storeCall = FunctionCall<(Data, URL), Result<Void, Error>>()
-    func store(data: Data, to url: URL) -> Result<Void, Error> {
-        return stubCall(storeCall, argument: (data, url), defaultValue: .failure(NSError.dummy))
-    }
-}
-  
-final class MockDownloader: Downloader {
-    let downloadCall = FunctionCall<(URL, (Result<Data, Error>) -> ()), Void>()
-    func download(from url: URL, completion: @escaping (Result<Data, Error>) -> ()) {
-        return stubCall(downloadCall, argument: (url, completion), defaultValue: ())
-    }
-}
-
-// 5 -------------------------------------------------------------------------------------
+// 2 -------------------------------------------------------------------------------------
 
 class ServiceSpec: QuickSpec {
     override func spec() {
@@ -292,7 +194,7 @@ class ServiceSpec: QuickSpec {
     }
 }
 
-// 6 -------------------------------------------------------------------------------------
+// 3 -------------------------------------------------------------------------------------
 
 class ServiceAlternativeSpec: XCTestCase {
     var sut: Service!
@@ -355,8 +257,7 @@ class ServiceAlternativeSpec: XCTestCase {
         downloader.downloadCall
             .on { passed, _ in passed == self.url }
             .performs { _, completion in
-                struct DownloadError: Error {}
-                completion(.failure(DownloadError()))
+                completion(.failure(NSError.dummy))
             }
         
         //when
@@ -397,10 +298,9 @@ class ServiceAlternativeSpec: XCTestCase {
             .performs { _, completion in
                 completion(.success(data))
             }
-        struct StoreError: Error {}
         storage.storeCall
             .on { _, passed in passed == self.url }
-            .returns(.failure(StoreError()))
+            .returns(.failure(NSError.dummy))
         
         //when
         var received: Result<Data, Error>!
@@ -434,16 +334,16 @@ class ServiceAlternativeSpec: XCTestCase {
     }
 }
 
-// 7 -------------------------------------------------------------------------------------
+// 4 -------------------------------------------------------------------------------------
 
 //let url = URL(string: "https://images.pexels.com/photos/67636/rose-blue-flower-rose-blooms-67636.jpeg")!
 //let service = ServiceFactory.new()
 //service.provide(for: url) { print($0) }
 
-// 8 -------------------------------------------------------------------------------------
+// 5 -------------------------------------------------------------------------------------
 
 //ServiceSpec.defaultTestSuite.run()
 
-// 9 -------------------------------------------------------------------------------------
+// 6 -------------------------------------------------------------------------------------
 
 //ServiceAlternativeSpec.defaultTestSuite.run()
