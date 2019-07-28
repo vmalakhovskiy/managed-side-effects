@@ -5,15 +5,20 @@ import PlaygroundSupport
 
 /* Content list:
     1, 2, 3 - State, Event and reduce - representation of logic separated from Service
-    4 - Presenter - interpretes state to concrete effect handler (controller)
+    4 - Presenter - interpretes state for concrete effect producer interface (controller)
     5 - Controller - effects producer
     6 - Logic tests (XCTest) imeplementation
     7 - Presenter tests (XCTest) imeplementation
     8 - Controller tests (XCTest) imeplementation
-    9 - Uncomment this block to execute business logic
+    9 - Uncomment this block to execute data download/cache
     10 - Uncomment this block to run tests for logic
     11 - Uncomment this block to run Presenter tests
     12 - Uncomment this block to run Controller tests
+    --- alternative ---
+    13 - EffectsPrtoducer - interpretes state in terms of effects (direct, without presenter)
+    14 - EffectsPrtoducer tests (XCTest) imeplementation
+    15 - Uncomment this block to execute data download/cache
+    16 - Uncomment this block to run EffectsPrtoducer tests
 */
 
 // 1 -------------------------------------------------------------------------------------
@@ -465,3 +470,181 @@ final class ControllerSpec: XCTestCase {
 // 12 -------------------------------------------------------------------------------------
 
 //ControllerSpec.defaultTestSuite.run()
+
+// 13 -------------------------------------------------------------------------------------
+
+class EffectsProducer {
+    private let storage: Storage
+    private let downloader: Downloader
+    
+    init(storage: Storage, downloader: Downloader) {
+        self.storage = storage
+        self.downloader = downloader
+    }
+
+    func handle(state: State, produce: @escaping (Event?) -> ()) {
+        switch state {
+        case .checkingForAvaliability(let url):
+            switch storage.fetch(from: url) {
+            case .success(let data):
+                produce(.checkSucceed(data))
+            case .failure:
+                produce(.checkFailed)
+            }
+        case .downloading(let url):
+            downloader.download(from: url) { result in
+                switch result {
+                case .success(let data):
+                    produce(.downloadSucceed(data))
+                case .failure:
+                    produce(.downloadFailed)
+                }
+            }
+        case .saving(let url, let data):
+            switch storage.store(data: data, to: url) {
+            case .success:
+                produce(.saveSucceed(data))
+            case .failure:
+                produce(.saveFailed)
+            }
+        default:
+            break
+        }
+    }
+}
+
+struct EffectsProducerFactory {
+    static func new(
+        storage: Storage = StorageFactory.new(),
+        downloader: Downloader = DownloaderFactory.new()
+    ) -> EffectsProducer {
+        return EffectsProducer(storage: storage, downloader: downloader)
+    }
+}
+
+// 14 -------------------------------------------------------------------------------------
+
+final class EffectsProducerSpec: XCTestCase {
+    var sut: EffectsProducer!
+    var storage: MockStorage!
+    var downloader: MockDownloader!
+    var url: URL!
+    var data: Data!
+    var expected: Event?
+    
+    override func setUp() {
+        super.setUp()
+        
+        expected = nil
+        storage = MockStorage()
+        downloader = MockDownloader()
+        sut = EffectsProducerFactory.new(storage: storage, downloader: downloader)
+        url = URL(string: "https://betterme.world")!
+        data = Data()
+    }
+    
+    func test_shouldReadData_forCheckForAvaliabilityProps_andReturnData_ifSucceed() {
+        //given
+        storage.fetchCall
+            .on { $0 == self.url }
+            .returns(.success(data))
+        
+        //when
+        sut.handle(state: .checkingForAvaliability(url), produce: { self.expected = $0 })
+        
+        //then
+        XCTAssertEqual(expected, .checkSucceed(data))
+    }
+    
+    func test_shouldReadData_forCheckForAvaliabilityProps_andCallFailure_ifFailed() {
+        //given
+        storage.fetchCall
+            .on { $0 == self.url }
+            .returns(.failure(NSError.dummy))
+        
+        //when
+        sut.handle(state: .checkingForAvaliability(url), produce: { self.expected = $0 })
+        
+        //then
+        XCTAssertEqual(expected, .checkFailed)
+    }
+    
+    func test_shouldDownloadData_forDownloadProps_andReturnData_ifSucceed() {
+        //given
+        downloader.downloadCall
+            .on { passed, _ in passed == self.url }
+            .performs { _, completion in
+                completion(.success(self.data))
+        }
+        
+        //when
+        sut.handle(state: .downloading(url), produce: { self.expected = $0 })
+        
+        //then
+        XCTAssertEqual(expected, .downloadSucceed(data))
+    }
+    
+    func test_shouldDownloadData_forDownloadProps_andCallFailure_ifFailed() {
+        //given
+        downloader.downloadCall
+            .on { passed, _ in passed == self.url }
+            .performs { _, completion in
+                completion(.failure(NSError.dummy))
+        }
+        
+        //when
+        sut.handle(state: .downloading(url), produce: { self.expected = $0 })
+        
+        //then
+        XCTAssertEqual(expected, .downloadFailed)
+    }
+    
+    func test_shouldSaveData_forSaveProps_andReturnData_ifSucceed() {
+        //given
+        storage.storeCall
+            .on { _, passed in passed == self.url }
+            .returns(.success(()))
+        
+        //when
+        sut.handle(state: .saving(url, data), produce: { self.expected = $0 })
+        
+        //then
+        XCTAssertEqual(expected, .saveSucceed(data))
+    }
+    
+    func test_shouldSaveData_forSaveProps_andCallFailure_ifFailed() {
+        //given
+        storage.storeCall
+            .on { _, passed in passed == self.url }
+            .returns(.failure(NSError.dummy))
+        
+        //when
+        sut.handle(state: .saving(url, data), produce: { self.expected = $0 })
+        
+        //then
+        XCTAssertEqual(expected, .saveFailed)
+    }
+}
+
+// 15 -------------------------------------------------------------------------------------
+
+//let url = URL(string: "https://images.pexels.com/photos/67636/rose-blue-flower-rose-blooms-67636.jpeg")!
+//let producer = EffectsProducerFactory.new()
+//var state = State.idle
+//
+//func dispatch(event: Event) {
+//    let newState = reduce(state, with: event)
+//    print("""
+//        old state: \(state)
+//        event: \(event)
+//        new state: \(newState)
+//        -
+//        """)
+//    state = newState
+//    producer.handle(state: state) { $0.map(dispatch) }
+//}
+//dispatch(event: .download(url))
+
+// 16 -------------------------------------------------------------------------------------
+
+// EffectsProducerSpec.defaultTestSuite.run()
